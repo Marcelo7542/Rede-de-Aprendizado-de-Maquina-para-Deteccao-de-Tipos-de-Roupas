@@ -7,9 +7,12 @@ Created on Wed May  1 16:41:37 2024
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.layers import Dense, Flatten, BatchNormalization, Dropout
 from tensorflow.keras.datasets import mnist
+from tensorflow.keras.callbacks import EarlyStopping
 from PIL import Image
+import pandas as pd
+import joblib as jl
 
 
 
@@ -23,20 +26,33 @@ imagens_treino = imagens_treino/255.0
 imagens_teste = imagens_teste/255.0
 
 
-modelo = tf.keras.Sequential()
-
-modelo.add(Flatten(input_shape=(28,28)))
-modelo.add(Dense(300, activation = 'relu'))
-modelo.add(Dense(300, activation = 'relu'))
-modelo.add(Dense(10, activation = 'softmax'))
-
+modelo = tf.keras.Sequential([
+    Flatten(input_shape=(28,28)),
+    BatchNormalization(),
+    Dense(1024, activation = 'relu'),
+    Dropout(0.4),
+    BatchNormalization(),
+    Dense(1024, activation = 'relu'),
+    Dropout(0.4),
+    BatchNormalization(),
+    Dense(1024, activation = 'relu'),
+    Dropout(0.4),
+    BatchNormalization(),
+    Dense(10, activation = 'softmax')
+    ])
 
 modelo.compile(optimizer='adam',
                loss='sparse_categorical_crossentropy',
                metrics=['accuracy'])
 
 
-historico = modelo.fit(imagens_treino, rótulos_treino, epochs = 2, validation_split=0.2)
+paralização = EarlyStopping(
+    patience=3,
+    min_delta=0.001,
+    restore_best_weights=True
+    )
+
+historico = modelo.fit(imagens_treino, rótulos_treino,batch_size=500, epochs = 30, validation_split=0.2, callbacks=[paralização], verbose = 2)
 
 
 (erro, acerto) = modelo.evaluate(imagens_teste, rótulos_teste)
@@ -78,4 +94,6 @@ Elemento1 = np.amax(predição1)
 print("A imagem é um/a: "+nomes_classes[Numero_do_elemento1] )
 print (str(int(Elemento1*100)) + "% Nivel de confiança")
 
-
+historico = pd.DataFrame(historico.history)
+historico.loc[:, ['loss', 'val_loss']].plot()
+historico.loc[:, ['accuracy', 'val_accuracy']].plot()
